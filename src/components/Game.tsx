@@ -337,6 +337,66 @@ export default function Game() {
 
     ctx.restore();
 
+    // --- Draw Minimap ---
+    if (me && me.state === 'playing') {
+      const minimapSize = 120;
+      const padding = 20;
+      const mapX = canvas.width - minimapSize - padding;
+      const mapY = canvas.height - minimapSize - padding;
+
+      ctx.fillStyle = 'rgba(17, 24, 39, 0.7)'; // gray-900 with opacity
+      ctx.strokeStyle = 'rgba(75, 85, 99, 0.5)'; // gray-600
+      ctx.lineWidth = 2;
+      
+      if (ctx.roundRect) {
+        ctx.beginPath();
+        ctx.roundRect(mapX, mapY, minimapSize, minimapSize, 10);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        ctx.fillRect(mapX, mapY, minimapSize, minimapSize);
+        ctx.strokeRect(mapX, mapY, minimapSize, minimapSize);
+      }
+
+      const scale = minimapSize / worldSize;
+
+      // Draw viewport indicator
+      const viewW = canvas.width * scale;
+      const viewH = canvas.height * scale;
+      const viewX = mapX + (me.x * scale) - viewW / 2;
+      const viewY = mapY + (me.y * scale) - viewH / 2;
+      
+      // Clamp viewport indicator to minimap bounds
+      const clampX = Math.max(mapX, Math.min(viewX, mapX + minimapSize));
+      const clampY = Math.max(mapY, Math.min(viewY, mapY + minimapSize));
+      const clampW = Math.min(viewW, mapX + minimapSize - clampX);
+      const clampH = Math.min(viewH, mapY + minimapSize - clampY);
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(clampX, clampY, clampW, clampH);
+
+      // Draw players on minimap
+      gameState.players.forEach(player => {
+        if (player.state !== 'playing') return;
+        
+        const isMe = player.id === myId;
+        const minimapPlayerX = mapX + player.x * scale;
+        const minimapPlayerY = mapY + player.y * scale;
+
+        ctx.fillStyle = isMe ? '#10b981' : player.color;
+        ctx.beginPath();
+        ctx.arc(minimapPlayerX, minimapPlayerY, isMe ? 3 : 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        if (isMe) {
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      });
+    }
+
     return () => {
       window.removeEventListener('resize', resizeCanvas);
     };
