@@ -21,6 +21,7 @@ interface Player {
   body: Point[]; score: number;
   color: string; state: 'playing' | 'dead' | 'spectating';
   deathReason?: string; invincible?: boolean;
+  isBoosting?: boolean;
 }
 
 interface Food {
@@ -118,6 +119,11 @@ async function startServer() {
       if (player && player.state === 'playing') player.targetAngle = data.angle;
     });
 
+    socket.on('boost', (isBoosting: boolean) => {
+      const player = state.players.get(socket.id);
+      if (player && player.state === 'playing') player.isBoosting = isBoosting;
+    });
+
     socket.on('admin:toggleInvincibility', () => {
       const player = state.players.get(socket.id);
       if (player) player.invincible = !player.invincible;
@@ -156,8 +162,19 @@ async function startServer() {
       if (Math.abs(diff) < TURN_SPEED) player.angle = player.targetAngle;
       else player.angle += Math.sign(diff) * TURN_SPEED;
 
-      player.x += Math.cos(player.angle) * player.speed;
-      player.y += Math.sin(player.angle) * player.speed;
+      let currentSpeed = player.speed;
+      if (player.isBoosting && player.score > 20) {
+        currentSpeed = BASE_SPEED * 1.8;
+        if (Math.random() < 0.3) {
+          player.score -= 1;
+          const tail = player.body[player.body.length - 1] || { x: player.x, y: player.y };
+          const id = Math.random().toString(36).substring(2, 9);
+          state.food.set(id, { id, x: tail.x, y: tail.y, value: 1, radius: 3, color: player.color });
+        }
+      }
+
+      player.x += Math.cos(player.angle) * currentSpeed;
+      player.y += Math.sin(player.angle) * currentSpeed;
 
       if (player.x < 0 || player.x > WORLD_SIZE || player.y < 0 || player.y > WORLD_SIZE) {
         if (player.invincible) {

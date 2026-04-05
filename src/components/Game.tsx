@@ -146,10 +146,20 @@ export default function Game() {
       }
     };
 
+    const handleMouseDown = () => { if (socket && isPlaying) socket.emit('boost', true); };
+    const handleMouseUp = () => { if (socket && isPlaying) socket.emit('boost', false); };
+
     const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        setIsAdmin(true);
+      if (e.touches.length === 1) {
+        if (socket && isPlaying) socket.emit('boost', true);
+      } else if (e.touches.length === 2 && isAdmin) {
         setShowAdminMenu(prev => !prev);
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) {
+        if (socket && isPlaying) socket.emit('boost', false);
       }
     };
 
@@ -157,20 +167,37 @@ export default function Game() {
       if (e.key.toLowerCase() === 'm' && isAdmin) {
         setShowAdminMenu(prev => !prev);
       }
+      if (e.key === ' ' || e.key === 'Shift') {
+        if (socket && isPlaying) socket.emit('boost', true);
+      }
     };
 
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === ' ' || e.key === 'Shift') {
+        if (socket && isPlaying) socket.emit('boost', false);
+      }
+    };
+
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('touchmove', handleTouchMove, { passive: false });
     window.addEventListener('touchstart', handleTouchStart, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
     
     return () => {
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handlePointerMove, isAdmin]);
+  }, [handlePointerMove, isAdmin, socket, isPlaying]);
 
   // Render loop
   useEffect(() => {
@@ -239,12 +266,13 @@ export default function Game() {
     ctx.strokeRect(0, 0, worldSize, worldSize);
 
     // Draw food
+    const time = Date.now();
     gameState.food.forEach(f => {
       ctx.fillStyle = f.color;
       ctx.shadowColor = f.color;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 10 + Math.sin(time / 200 + f.x) * 5;
       ctx.beginPath();
-      ctx.arc(f.x, f.y, f.radius, 0, Math.PI * 2);
+      ctx.arc(f.x, f.y, f.radius + Math.sin(time / 200 + f.y) * 1, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0; // reset
     });
@@ -264,7 +292,15 @@ export default function Game() {
         const segmentRadius = Math.max(player.radius * 0.5, player.radius * (1 - (i / player.body.length) * 0.5));
         ctx.beginPath();
         ctx.arc(segment.x, segment.y, segmentRadius, 0, Math.PI * 2);
+        ctx.fillStyle = player.color;
         ctx.fill();
+        
+        // Add stripes
+        if (i % 2 === 0) {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+          ctx.fill();
+        }
+
         if (player.invincible) {
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
           ctx.lineWidth = 2;
@@ -337,64 +373,61 @@ export default function Game() {
 
     ctx.restore();
 
-    // --- Draw Minimap ---
+    // --- Draw Circular Minimap ---
     if (me && me.state === 'playing') {
-      const minimapSize = 120;
+      const minimapRadius = 70;
       const padding = 20;
-      const mapX = canvas.width - minimapSize - padding;
-      const mapY = canvas.height - minimapSize - padding;
+      const mapCenterX = canvas.width - minimapRadius - padding;
+      const mapCenterY = canvas.height - minimapRadius - padding;
 
-      ctx.fillStyle = 'rgba(17, 24, 39, 0.7)'; // gray-900 with opacity
-      ctx.strokeStyle = 'rgba(75, 85, 99, 0.5)'; // gray-600
-      ctx.lineWidth = 2;
+      ctx.save();
       
-      if (ctx.roundRect) {
-        ctx.beginPath();
-        ctx.roundRect(mapX, mapY, minimapSize, minimapSize, 10);
-        ctx.fill();
-        ctx.stroke();
-      } else {
-        ctx.fillRect(mapX, mapY, minimapSize, minimapSize);
-        ctx.strokeRect(mapX, mapY, minimapSize, minimapSize);
-      }
+      // Draw minimap background
+      ctx.beginPath();
+      ctx.arc(mapCenterX, mapCenterY, minimapRadius, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(17, 24, 39, 0.8)'; // gray-900 with opacity
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.5)'; // Emerald border
+      ctx.stroke();
 
-      const scale = minimapSize / worldSize;
+      // Clip to circle
+      ctx.clip();
 
-      // Draw viewport indicator
-      const viewW = canvas.width * scale;
-      const viewH = canvas.height * scale;
-      const viewX = mapX + (me.x * scale) - viewW / 2;
-      const viewY = mapY + (me.y * scale) - viewH / 2;
-      
-      // Clamp viewport indicator to minimap bounds
-      const clampX = Math.max(mapX, Math.min(viewX, mapX + minimapSize));
-      const clampY = Math.max(mapY, Math.min(viewY, mapY + minimapSize));
-      const clampW = Math.min(viewW, mapX + minimapSize - clampX);
-      const clampH = Math.min(viewH, mapY + minimapSize - clampY);
+      const scale = (minimapRadius * 2) / worldSize;
 
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      // Draw radar grid/crosshairs
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.2)';
       ctx.lineWidth = 1;
-      ctx.strokeRect(clampX, clampY, clampW, clampH);
+      ctx.beginPath();
+      ctx.moveTo(mapCenterX - minimapRadius, mapCenterY);
+      ctx.lineTo(mapCenterX + minimapRadius, mapCenterY);
+      ctx.moveTo(mapCenterX, mapCenterY - minimapRadius);
+      ctx.lineTo(mapCenterX, mapCenterY + minimapRadius);
+      ctx.stroke();
 
       // Draw players on minimap
       gameState.players.forEach(player => {
         if (player.state !== 'playing') return;
         
         const isMe = player.id === myId;
-        const minimapPlayerX = mapX + player.x * scale;
-        const minimapPlayerY = mapY + player.y * scale;
+        // Map world coordinates to minimap coordinates
+        const minimapPlayerX = mapCenterX + (player.x - worldSize/2) * scale;
+        const minimapPlayerY = mapCenterY + (player.y - worldSize/2) * scale;
 
         ctx.fillStyle = isMe ? '#10b981' : player.color;
         ctx.beginPath();
-        ctx.arc(minimapPlayerX, minimapPlayerY, isMe ? 3 : 1.5, 0, Math.PI * 2);
+        ctx.arc(minimapPlayerX, minimapPlayerY, isMe ? 4 : 2, 0, Math.PI * 2);
         ctx.fill();
         
         if (isMe) {
           ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 1;
+          ctx.lineWidth = 1.5;
           ctx.stroke();
         }
       });
+
+      ctx.restore();
     }
 
     return () => {
