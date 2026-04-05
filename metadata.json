@@ -1,5 +1,5 @@
 {
-  "name": "Remix: Snake.io",
+  "name": "Snake.io",
   "description": "A multiplayer online snake game with a real-time leaderboard.",
   "requestFramePermissions": []
 }

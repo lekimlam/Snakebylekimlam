@@ -1,10 +1,10 @@
 {
-  "projectId": "remixed-project-id",
-  "appId": "remixed-app-id",
-  "apiKey": "remixed-api-key",
-  "authDomain": "remixed-auth-domain",
-  "firestoreDatabaseId": "remixed-firestore-database-id",
-  "storageBucket": "remixed-storage-bucket",
-  "messagingSenderId": "remixed-messaging-sender-id",
-  "measurementId": "remixed-measurement-id"
+  "projectId": "flutter-ai-playground-f347f",
+  "appId": "1:1083056973088:web:94130da71655a9d9b66345",
+  "apiKey": "AIzaSyA1mLtCYNJkdwcgMtuzSoXSLzrsn8Mcgd4",
+  "authDomain": "flutter-ai-playground-f347f.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-4810a923-2b6d-44f5-8a43-af6086eb87c6",
+  "storageBucket": "flutter-ai-playground-f347f.firebasestorage.app",
+  "messagingSenderId": "1083056973088",
+  "measurementId": ""
 }
